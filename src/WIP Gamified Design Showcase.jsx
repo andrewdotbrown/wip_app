@@ -888,7 +888,7 @@ export default function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
-    if (code && isLoggedIn) {
+    if (code && isLoggedIn && !authLoading) {
       const exchangeToken = async () => {
         try {
           const session = await supabase.auth.getSession();
@@ -900,7 +900,7 @@ export default function App() {
           });
           const data = await res.json();
           if (data.success) {
-            window.history.replaceState({}, '', '/');
+            window.location.href = '/';
           }
         } catch (err) {
           console.error('Figma connect error:', err);
@@ -908,7 +908,7 @@ export default function App() {
       };
       exchangeToken();
     }
-  }, [isLoggedIn]);
+  }, [isLoggedIn, authLoading]);
 
   const handleConfirm = async () => {
     setSubmitting(true);
