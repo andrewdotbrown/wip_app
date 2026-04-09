@@ -852,6 +852,11 @@ function AuthModal({ signUp, signIn, authLoading, authError, clearError, onClose
   );
 }
 
+const FIGMA_CLIENT_ID = 'jCxv1UIJa9tDRVnpbyQ4gR';
+const FIGMA_REDIRECT_URI = 'https://wip-app-sigma.vercel.app/auth/figma/callback';
+const FIGMA_SCOPE = 'file_content:read';
+const SUPABASE_FUNCTIONS_URL = 'https://hntbabglarvxnwqqtkra.supabase.co/functions/v1';
+
 // ── APP ───────────────────────────────────────────────────────────────────────
 export default function App() {
   const [page, setPage] = useState("home");
