@@ -2,6 +2,11 @@ import { useState, useEffect, useRef } from "react";
 import { useAuth } from "./hooks/useAuth";
 import { supabase } from "./lib/supabase";
 
+const FIGMA_CLIENT_ID = 'jCxv1UIJa9tDRVnpbyQ4gR';
+const FIGMA_REDIRECT_URI = 'https://wip-app-sigma.vercel.app/auth/figma/callback';
+const FIGMA_SCOPE = 'file_content:read';
+const SUPABASE_FUNCTIONS_URL = 'https://hntbabglarvxnwqqtkra.supabase.co/functions/v1';
+
 // ── FONTS ─────────────────────────────────────────────────────────────────────
 (() => {
   const l = document.createElement("link");
@@ -868,6 +873,43 @@ export default function App() {
 
   const reset = () => { setStep(1); setSelTime(null); setSelDiff(null); setBrief(null); setCounting(false); setChallengeElapsed(0); };
 
+  const connectFigma = () => {
+    const state = crypto.randomUUID();
+    sessionStorage.setItem('figma_oauth_state', state);
+    const url = new URL('https://www.figma.com/oauth');
+    url.searchParams.set('client_id', FIGMA_CLIENT_ID);
+    url.searchParams.set('redirect_uri', FIGMA_REDIRECT_URI);
+    url.searchParams.set('scope', FIGMA_SCOPE);
+    url.searchParams.set('state', state);
+    url.searchParams.set('response_type', 'code');
+    window.location.href = url.toString();
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    if (code && isLoggedIn) {
+      const exchangeToken = async () => {
+        try {
+          const session = await supabase.auth.getSession();
+          const jwt = session.data.session?.access_token;
+          const res = await fetch(`${SUPABASE_FUNCTIONS_URL}/figma-token-exchange`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwt}` },
+            body: JSON.stringify({ code }),
+          });
+          const data = await res.json();
+          if (data.success) {
+            window.history.replaceState({}, '', '/');
+          }
+        } catch (err) {
+          console.error('Figma connect error:', err);
+        }
+      };
+      exchangeToken();
+    }
+  }, [isLoggedIn]);
+
   const handleConfirm = async () => {
     setSubmitting(true);
     setSubmitError(null);
@@ -919,7 +961,11 @@ export default function App() {
                 <h1 className="hero-h1">Design<br/>under<br/><em>pressure.</em></h1>
                 <p className="hero-p">Pick your time. Pick your difficulty. Get a brief you've never seen before. Build something. Ship it. Repeat.</p>
                 <div className="hero-ctas">
-                  <button className="btn-p" onClick={()=>setPage("setup")}>Start a Challenge →</button>
+                  {profile?.figma_connected ? (
+                    <button className="btn-p" onClick={()=>setPage("setup")}>Start a Challenge →</button>
+                  ) : (
+                    <button className="btn-p" onClick={connectFigma}>Connect Figma to Start</button>
+                  )}
                   <button className="btn-g" onClick={()=>setPage("gallery")}>Browse Gallery</button>
                 </div>
                 <div className="hero-stats">
