@@ -7,6 +7,17 @@ const FIGMA_REDIRECT_URI = 'https://wip-app-sigma.vercel.app/auth/figma/callback
 const FIGMA_SCOPE = 'file_content:read';
 const SUPABASE_FUNCTIONS_URL = 'https://hntbabglarvxnwqqtkra.supabase.co/functions/v1';
 
+// Intercept Figma OAuth callback before Supabase consumes the ?code param
+const _urlParams = new URLSearchParams(window.location.search);
+const _figmaCode = _urlParams.get('code');
+const _figmaState = _urlParams.get('state');
+const _storedState = sessionStorage.getItem('figma_oauth_state');
+if (_figmaCode && _figmaState && _figmaState === _storedState) {
+  sessionStorage.setItem('figma_pending_code', _figmaCode);
+  sessionStorage.removeItem('figma_oauth_state');
+  window.history.replaceState({}, '', '/');
+}
+
 // ── FONTS ─────────────────────────────────────────────────────────────────────
 (() => {
   const l = document.createElement("link");
@@ -852,11 +863,6 @@ function AuthModal({ signUp, signIn, authLoading, authError, clearError, onClose
   );
 }
 
-const FIGMA_CLIENT_ID = 'jCxv1UIJa9tDRVnpbyQ4gR';
-const FIGMA_REDIRECT_URI = 'https://wip-app-sigma.vercel.app/auth/figma/callback';
-const FIGMA_SCOPE = 'file_content:read';
-const SUPABASE_FUNCTIONS_URL = 'https://hntbabglarvxnwqqtkra.supabase.co/functions/v1';
-
 // ── APP ───────────────────────────────────────────────────────────────────────
 export default function App() {
   const [page, setPage] = useState("home");
@@ -891,17 +897,18 @@ export default function App() {
   };
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get('code');
-    if (code && isLoggedIn && !authLoading) {
+    const pendingCode = sessionStorage.getItem('figma_pending_code');
+    if (pendingCode && isLoggedIn && !authLoading) {
+      sessionStorage.removeItem('figma_pending_code');
       const exchangeToken = async () => {
         try {
-          const session = await supabase.auth.getSession();
-          const jwt = session.data.session?.access_token;
+          const { data: { session } } = await supabase.auth.getSession();
+          const jwt = session?.access_token;
+          if (!jwt) return;
           const res = await fetch(`${SUPABASE_FUNCTIONS_URL}/figma-token-exchange`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwt}` },
-            body: JSON.stringify({ code }),
+            body: JSON.stringify({ code: pendingCode }),
           });
           const data = await res.json();
           if (data.success) {
